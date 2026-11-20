@@ -408,7 +408,8 @@ var DATA = [["네모 격자",[[29,12],[71,12],[29,50],[71,50],[29,88],[71,88]],[
   };
   var kept = {};
   var doneMap = loadDone();
-  var hintTimer = null, flashTimer = null;
+  var hintTimer = null, flashTimer = null, autoTimer = null;
+  var AUTO_MS = 900;
 
   function $(id) { return document.getElementById(id); }
   function key(a, b) { return a < b ? a + '-' + b : b + '-' + a; }
@@ -741,6 +742,22 @@ var DATA = [["네모 격자",[[29,12],[71,12],[29,50],[71,50],[29,88],[71,88]],[
     st.complete = true;
     doneMap[cur().id] = 1;
     saveDone();
+    scheduleAuto();          /* 완성 화면을 잠깐 보여 주고 다음 문제로 */
+  }
+
+  function cancelAuto() {
+    if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; }
+  }
+
+  function scheduleAuto() {
+    cancelAuto();
+    autoTimer = setTimeout(function () {
+      autoTimer = null;
+      if (!st.complete) { return; }
+      if (index() >= PUZZLES.length - 1) { return; }   /* 4-100 은 그대로 */
+      var nx = PUZZLES[index() + 1];
+      openPuzzle(nx.stage, nx.no);
+    }, AUTO_MS);
   }
 
   function tapIndex(i) {
@@ -818,6 +835,7 @@ var DATA = [["네모 격자",[[29,12],[71,12],[29,50],[71,50],[29,88],[71,88]],[
   function undo() {
     var pz = cur();
     if (!pz) { return false; }
+    cancelAuto();
     if (st.path.length > 1) {
       var b = st.path.pop();
       var a = st.path[st.path.length - 1];
@@ -838,6 +856,7 @@ var DATA = [["네모 격자",[[29,12],[71,12],[29,50],[71,50],[29,88],[71,88]],[
   }
 
   function resetPuzzle() {
+    cancelAuto();
     st.path = [];
     st.used = {};
     st.hint = null;
@@ -993,6 +1012,7 @@ var DATA = [["네모 격자",[[29,12],[71,12],[29,50],[71,50],[29,88],[71,88]],[
   }
 
   function openSheet() {
+    cancelAuto();
     st.range = Math.floor((st.no - 1) / 25);
     buildRanges();
     buildNumbers();
@@ -1046,6 +1066,7 @@ var DATA = [["네모 격자",[[29,12],[71,12],[29,50],[71,50],[29,88],[71,88]],[
   }
 
   function selectStage(n) {
+    cancelAuto();
     stashCurrent();
     st.stage = n;
     st.no = firstOpen(n);
@@ -1055,6 +1076,7 @@ var DATA = [["네모 격자",[[29,12],[71,12],[29,50],[71,50],[29,88],[71,88]],[
   }
 
   function openPuzzle(stage, no) {
+    cancelAuto();
     stashCurrent();
     st.stage = stage;
     st.no = no;
@@ -1214,6 +1236,14 @@ var DATA = [["네모 격자",[[29,12],[71,12],[29,50],[71,50],[29,88],[71,88]],[
     doneMap: function () { return doneMap; },
     render: function () { fitCanvas(); render(); },
     edgeKey: key,
+    autoPending: function () { return autoTimer !== null; },
+    autoDelay: function () { return AUTO_MS; },
+    advance: function () {
+      if (index() >= PUZZLES.length - 1) { return false; }
+      var nx = PUZZLES[index() + 1];
+      openPuzzle(nx.stage, nx.no);
+      return true;
+    },
     sheet: function () { return st.sheet; },
     openSheet: openSheet,
     closeSheet: closeSheet,
